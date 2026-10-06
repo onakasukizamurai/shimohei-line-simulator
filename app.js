@@ -38,8 +38,17 @@ function addMessage(text, sender = 'coach') {
     const avatar = document.createElement('div');
     avatar.className = 'coach-avatar';
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = PEERS[sender]?.initial || 'し';
-    if (PEERS[sender]) avatar.style.background = PEERS[sender].color;
+    if (sender === 'coach') {
+      const portrait = document.createElement('img');
+      portrait.src = './assets/shimohei-avatar.png';
+      portrait.alt = '';
+      portrait.width = 40;
+      portrait.height = 40;
+      avatar.append(portrait);
+    } else {
+      avatar.textContent = PEERS[sender]?.initial || '';
+      if (PEERS[sender]) avatar.style.background = PEERS[sender].color;
+    }
     row.append(avatar);
   }
   const content = document.createElement('div');
@@ -278,6 +287,8 @@ input.addEventListener('input', () => {
   $('#send-button').disabled = busy || state.completed || !input.value.trim();
 });
 $('#restart').addEventListener('click', reset);
+$('#header-chats').addEventListener('click', () => $('#inbox-button').click());
+$('#compose-document').addEventListener('click', () => $('#document-button').click());
 document.addEventListener('visibilitychange', () => { lastReplyAt = Date.now(); });
 
 setInterval(async () => {
