@@ -1,0 +1,12 @@
+node_modules/
+.sites-runtime/
+.env
+.env.*
+!.env.example
+*.log
+*.txt
+!robots.txt
+__pycache__/
+.DS_Store
+Thumbs.db
+artifacts/
