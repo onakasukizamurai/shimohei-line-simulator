@@ -1,4 +1,6 @@
 import { STAGES, classifyReply, initialState, applyReply, getEnding } from './dialogue.js';
+import { createEvents } from './events.js';
+import { PEERS, applyEventImpact } from './gameplay.js';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');
@@ -15,6 +17,8 @@ let gameMinutes = 0;
 let lastSender = null;
 let composing = false;
 const delays = new Set();
+let pendingContinuation = null;
+let events;
 
 function scrollToLatest(force = false) {
   if (force || history.scrollHeight - history.scrollTop - history.clientHeight < 220) {
@@ -30,18 +34,19 @@ function addMessage(text, sender = 'coach') {
   const shouldFollow = history.scrollHeight - history.scrollTop - history.clientHeight < 220;
   const row = document.createElement('div');
   row.className = `message-row ${sender === 'user' ? 'user-row' : ''} ${sender === 'coach' && lastSender === 'coach' ? 'followup' : ''}`;
-  if (sender === 'coach') {
+  if (sender !== 'user') {
     const avatar = document.createElement('div');
     avatar.className = 'coach-avatar';
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = 'し';
+    avatar.textContent = PEERS[sender]?.initial || 'し';
+    if (PEERS[sender]) avatar.style.background = PEERS[sender].color;
     row.append(avatar);
   }
   const content = document.createElement('div');
   content.className = 'message-content';
   const speaker = document.createElement('span');
-  speaker.className = sender === 'coach' ? 'speaker' : 'sr-only';
-  speaker.textContent = sender === 'coach' ? 'しもへい。' : 'あなた';
+  speaker.className = sender !== 'user' ? 'speaker' : 'sr-only';
+  speaker.textContent = PEERS[sender]?.name || (sender === 'coach' ? 'しもへい。' : 'あなた');
   const line = document.createElement('div');
   line.className = 'bubble-line';
   const bubble = document.createElement('div');
@@ -86,6 +91,7 @@ async function coachSays(lines, token) {
 }
 
 function renderStatus() {
+  $('#meeting-clock').textContent = gameTime();
   $('#mental-value').textContent = state.mental;
   $('#mental-bar').style.width = `${state.mental}%`;
   $('#mental-bar').style.background = state.mental < 30 ? '#f0a29a' : '#94eaa0';
@@ -100,12 +106,14 @@ function renderStatus() {
     li.setAttribute('aria-label', `${STAGES[index].title}：${state.resolved[index] === true ? '決定' : state.resolved[index] === false ? '要確認' : state.stage === index && !state.completed ? '相談中' : '未相談'}`);
   });
   $('.live-label').textContent = state.completed ? '会議終了' : '会議中';
+  events?.render();
 }
 
 function renderChoices() {
   const choices = $('#choices');
   choices.replaceChildren();
   if (state.completed) return;
+  if (events?.active) { events.renderChoices(choices); return; }
   // 正解が毎回同じ位置にならないようにする。
   const list = [...STAGES[state.stage].choices];
   for (let i = list.length - 1; i > 0; i--) {
@@ -133,8 +141,9 @@ function setBusy(value) {
   $('#choices').querySelectorAll('button').forEach(button => { button.disabled = value || state.completed; });
   input.disabled = state.completed;
   $('#send-button').disabled = value || state.completed || !input.value.trim();
-  $('#reply-title').textContent = state.completed ? 'おつかれさまでした。' : value ? 'しもへい。が返信中…' : 'どう返す？';
+  $('#reply-title').textContent = state.completed ? 'おつかれさまでした。' : value ? 'しもへい。が返信中…' : events?.active ? events.title : 'どう返す？';
   $('#reply-hint').textContent = state.completed ? 'もう一度挑戦するなら、やり直す。' : '選択肢でも、あなたの言葉でも。';
+  events?.render();
 }
 
 function showResult() {
@@ -163,6 +172,7 @@ function showResult() {
   button.textContent = 'もう一度、戦術会議';
   button.addEventListener('click', reset);
   result.append(eyebrow, title, description, score, button);
+  events?.addResult(result);
   result.hidden = false;
   result.dataset.ending = ending.id;
   scrollToLatest(true);
@@ -172,10 +182,16 @@ async function submitReply(raw, selectedKind) {
   if (busy || state.completed) return { ok: false, reason: state.completed ? '会議は終了しています。' : '返信を待っています。' };
   const text = String(raw).trim();
   if (!text || text.length > 500) return { ok: false, reason: '1〜500文字で返信してください。' };
+  if (events?.active) {
+    input.value = ''; input.style.height = '';
+    await events.reply(text);
+    return { ok: true, ...stateSnapshot() };
+  }
   const token = session;
   const stage = STAGES[state.stage];
   const kind = selectedKind || classifyReply(stage, text);
   const previousStage = state.stage;
+  events.onReply(stage, text, kind);
   state = applyReply(state, kind);
   gameMinutes++;
   lastReplyAt = Date.now();
@@ -188,15 +204,15 @@ async function submitReply(raw, selectedKind) {
   scrollToLatest(true);
   const lines = kind === 'specific' ? stage.good : kind === 'question' ? [stage.hint] : kind === 'offtopic' ? ['それは、学習院戦の戦術の話？', 'いま聞いてることに答えてもらえるかな？？'] : state.stage > previousStage ? ['そうじゃなくて、、、', ...stage[kind]] : stage[kind];
   if (!(await coachSays(lines, token))) return { ok: false, reason: '会議をやり直しました。' };
-  if (state.completed) {
-    if (!(await coachSays(getEnding(state).messages, token))) return { ok: false, reason: '会議をやり直しました。' };
-    showResult();
-  } else if (state.stage > previousStage) {
+  pendingContinuation = async () => {
+  if (state.stage > previousStage) {
     if (kind !== 'specific' && !(await coachSays(['そこは宿題ね。\nいったん次の話します。'], token))) return { ok: false };
     if (!(await coachSays(STAGES[state.stage].opening, token))) return { ok: false };
   } else if (kind !== 'question') {
     if (!(await coachSays([stage.retry], token))) return { ok: false };
   }
+  };
+  await continueMeeting(token);
   if (token !== session) return { ok: false };
   renderChoices();
   setBusy(false);
@@ -204,11 +220,32 @@ async function submitReply(raw, selectedKind) {
   return { ok: true, ...stateSnapshot() };
 }
 
+async function continueMeeting(token = session) {
+  if (token !== session) return;
+  setBusy(true);
+  if (state.completed) {
+    events.closeAll();
+    if (!(await coachSays(getEnding(state).messages, token))) return;
+    pendingContinuation = null;
+    showResult();
+  } else if (await events.startNext()) {
+    if (token !== session) return;
+  } else if (pendingContinuation) {
+    const continuation = pendingContinuation;
+    pendingContinuation = null;
+    await continuation();
+  }
+  if (token !== session) return;
+  renderStatus(); renderChoices(); setBusy(false); lastReplyAt = Date.now();
+}
+
 function reset() {
   session++;
   for (const job of delays) { clearTimeout(job.id); job.resolve(); }
   delays.clear();
   state = initialState();
+  pendingContinuation = null;
+  events?.reset();
   lastSender = null;
   reminders = 0;
   lastReplyAt = Date.now();
@@ -244,7 +281,7 @@ $('#restart').addEventListener('click', reset);
 document.addEventListener('visibilitychange', () => { lastReplyAt = Date.now(); });
 
 setInterval(async () => {
-  if (busy || state.completed || document.hidden || reminders >= 2 || Date.now() - lastReplyAt < 45000) return;
+  if (busy || state.completed || events?.active || document.hidden || reminders >= 2 || Date.now() - lastReplyAt < 45000) return;
   const token = session;
   reminders++;
   gameMinutes++;
@@ -262,8 +299,16 @@ setInterval(async () => {
 }, 1000);
 
 function stateSnapshot() {
-  return { topic: state.completed ? '会議終了' : STAGES[state.stage].title, mental: state.mental, trust: state.trust, decided: state.resolved.filter(Boolean).length, finished: state.completed, choices: state.completed ? [] : STAGES[state.stage].choices.map(choice => choice.text) };
+  return { topic: state.completed ? '会議終了' : STAGES[state.stage].title, mental: state.mental, trust: state.trust, decided: state.resolved.filter(Boolean).length, finished: state.completed, choices: state.completed ? [] : events?.active ? events.choiceTexts : STAGES[state.stage].choices.map(choice => choice.text), events: events?.snapshot() };
 }
+
+events = createEvents({
+  getState: () => state, getToken: () => session, isBusy: () => busy, emit: addMessage,
+  say: lines => coachSays(lines, session), pause,
+  impact: (mental, trust) => { state = applyEventImpact(state, mental, trust); gameMinutes++; renderStatus(); },
+  changed: () => { renderStatus(); renderChoices(); setBusy(busy); lastReplyAt = Date.now(); },
+  lock: setBusy, resume: continueMeeting, scroll: () => scrollToLatest(true),
+});
 
 // 対応ブラウザーでは画面と同じ返信操作をWebMCP経由で利用できます。
 if (document.modelContext?.registerTool) {
@@ -273,6 +318,10 @@ if (document.modelContext?.registerTool) {
     { name: 'send_tactics_reply', description: '現在の戦術会議に自由入力で返信し、監督の返答を待つ。会議内の操作のみで、外部へ送信しない。', inputSchema: { type: 'object', properties: { message: { type: 'string', minLength: 1, maxLength: 500 } }, required: ['message'], additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: true }, execute: value => {
       if (!value || typeof value.message !== 'string' || !value.message.trim() || value.message.length > 500 || Object.keys(value).some(key => key !== 'message')) throw new Error('messageに1〜500文字の返信を指定してください。');
       return submitReply(value.message);
+    } },
+    { name: 'submit_tactics_document', description: '戦術メモの6項目を編集して現在の版を提出し、監督の赤入れを待つ。ゲーム内の提出のみで外部へアップロードしない。', inputSchema: { type: 'object', properties: { goal: { type: 'string', maxLength: 240 }, defence: { type: 'string', enum: ['linked', 'cover', 'ball'] }, trigger: { type: 'string', enum: ['backpass', 'touch', 'feeling'] }, transition: { type: 'string', enum: ['cover', 'reverse', 'none'] }, audience: { type: 'string', enum: ['all', 'leaders'] }, deadline: { type: 'string', enum: ['tonight', 'match'] } }, required: ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'], additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: true }, execute: async value => {
+      await events.submitDraft(value);
+      return stateSnapshot();
     } },
   ];
   for (const spec of specs) {
