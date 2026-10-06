@@ -64,8 +64,8 @@ export function createEvents(api) {
     dismiss.setAttribute('aria-label', '通知を閉じる');
     dismiss.addEventListener('click', () => toast.remove());
     toast.append(open, dismiss); toast.dataset.peer = peer;
-    $('#notifications').append(toast);
-    while ($('#notifications').children.length > 2) $('#notifications').firstElementChild.remove();
+    // 新着は毎回画面上端の同じ位置に表示する。未読と履歴は game に残す。
+    $('#notifications').replaceChildren(toast);
     soundNote();
   }
 

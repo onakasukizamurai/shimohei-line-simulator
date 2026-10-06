@@ -1,5 +1,5 @@
 import { STAGES, classifyReply, initialState, applyReply, getEnding } from './dialogue.js';
-import { createEvents } from './events.js';
+import { createEvents } from './events.js?v=0.3.2';
 import { PEERS, applyEventImpact } from './gameplay.js';
 
 const $ = selector => document.querySelector(selector);
