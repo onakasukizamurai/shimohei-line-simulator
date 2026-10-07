@@ -1,6 +1,6 @@
-import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from './dialogue.js?v=0.4.4';
-import { createEvents } from './events.js?v=0.4.4';
-import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.4';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from './dialogue.js?v=0.4.5';
+import { createEvents } from './events.js?v=0.4.5';
+import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.5';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');

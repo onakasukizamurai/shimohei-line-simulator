@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, shouldReceiveAoi, reviewDocument } from './gameplay.js?v=0.4.4';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, shouldReceiveAoi, reviewDocument } from './gameplay.js?v=0.4.5';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -426,8 +426,8 @@ export function createEvents(api) {
     if (game.active) return true;
     if (shouldReceiveJunior(api.getState(), game)) {
       game.seen.push('junior-dm');
-      receive('junior', '明日の部活前少し話せますか？', false);
-      receive('junior', '部活辞めたいです、、');
+      receive('junior', '明日の部活前少し話せますか？');
+      receive('junior', '部活辞めたいです、、', false);
       api.impact(-10, 0);
       if (api.getState().completed) { await api.resume(api.getToken()); return true; }
     }
@@ -444,7 +444,7 @@ export function createEvents(api) {
     } else if (type === 'document') {
       await api.say(['それ、１枚にまとめて送って。', '守る場所、プレスの合図、外されたとき、共有する相手。\n今の案が全員に伝わるように。']);
       if (token !== api.getToken()) return true;
-      receive('vice', 'メモ頼まれた？ たたき台なら手伝える！\nこのチャットで「たたき台をお願い」って言って。');
+      receive('vice', 'メモ頼まれた？ たたき台なら作れるよ！');
     } else if (type === 'incident') {
       receive('analyst', game.incident.teaser);
       await api.say(game.incident.messages);
@@ -522,9 +522,6 @@ export function createEvents(api) {
     },
     onReply(stage, text, kind) {
       if (kind === 'specific') game.answers[stage.id] = text;
-      if (!game.seen.includes('first-dm')) {
-        game.seen.push('first-dm'); receive('vice', 'いま詰められてる？\n「誰がどこ守るか」なら、こっちで整理してる。困ったら頼って！');
-      }
       if (kind === 'dodge' && !game.seen.includes('oops')) {
         game.seen.push('oops');
         api.emit('まぁ任せます。');
