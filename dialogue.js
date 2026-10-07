@@ -190,7 +190,7 @@ export function getEnding(state) {
   if (count >= 6 && state.trust >= 65) return {
     id: 'approved', title: 'いったん、納得。',
     description: 'しもへい。の詰めをくぐり抜け、戦術の共有までたどり着いた。あとはグラウンドで確認するだけ。',
-    messages: ['まぁ色々言ったけど、最高の秋リーグにするために俺も全力尽くすから', 'ホッケー楽しんで、やってこう。\nありがとう。'],
+    messages: ['まぁ色々言ったけど、最高の秋リーグにするために俺も全力尽くすから', 'ホッケー楽しんで、やってこう。\nありがとう。', '末長く頼むよアミーゴ！！'],
   };
   return {
     id: 'homework', title: '宿題つき、会議終了。',

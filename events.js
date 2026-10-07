@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, reviewDocument } from './gameplay.js?v=0.4.0';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, reviewDocument } from './gameplay.js?v=0.4.1';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -79,6 +79,7 @@ export function createEvents(api) {
 
   function render() {
     $('#document-submit').disabled = api.isBusy() || eventBusy || api.getState().completed;
+    document.querySelectorAll('[data-peer="junior"]').forEach(button => { button.hidden = !game.seen.includes('junior-dm'); });
     let total = 0;
     for (const peer of Object.keys(PEERS)) {
       total += game.unread[peer];
@@ -107,6 +108,7 @@ export function createEvents(api) {
 
   function openPeer(peer) {
     if (api.getState().completed || $('#phone-dialog').open) return;
+    if (peer === 'junior' && !game.seen.includes('junior-dm')) return;
     currentPeer = peer; game.unread[peer] = 0;
     $('#notifications').querySelectorAll(`[data-peer="${peer}"]`).forEach(item => item.remove());
     $('#dm-title').textContent = PEERS[peer].name;
@@ -124,7 +126,9 @@ export function createEvents(api) {
       history.append(item);
     }
     const choices = $('#dm-choices'); choices.replaceChildren();
-    DM_OPTIONS[currentPeer].forEach((text, index) => {
+    const canReply = currentPeer !== 'junior' || (game.seen.includes('junior-dm') && !game.dmReplies['junior-replied']);
+    choices.hidden = !canReply;
+    if (canReply) DM_OPTIONS[currentPeer].forEach((text, index) => {
       const button = node('button', '', text); button.type = 'button';
       button.addEventListener('click', () => replyPeer(currentPeer, index)); choices.append(button);
     });
@@ -133,6 +137,13 @@ export function createEvents(api) {
 
   function replyPeer(peer, index) {
     if (api.getState().completed) return;
+    if (peer === 'junior') {
+      if (!game.seen.includes('junior-dm') || game.dmReplies['junior-replied']) return;
+      game.chats[peer].push({ sender: 'user', text: DM_OPTIONS[peer][index] });
+      game.dmReplies['junior-replied'] = true;
+      game.unread[peer] = 0; renderDM(); api.changed();
+      return;
+    }
     game.chats[peer].push({ sender: 'user', text: DM_OPTIONS[peer][index] });
     const key = `${peer}:${index}`;
     if (game.dmReplies[key]) {
@@ -359,6 +370,13 @@ export function createEvents(api) {
 
   async function startNext() {
     if (game.active) return true;
+    if (shouldReceiveJunior(api.getState(), game)) {
+      game.seen.push('junior-dm');
+      receive('junior', '明日の部活前少し話せますか？', false);
+      receive('junior', '部活辞めたいです、、');
+      api.impact(-10, 0);
+      if (api.getState().completed) { await api.resume(api.getToken()); return true; }
+    }
     const type = nextEvent(api.getState(), game);
     if (!type) return false;
     const token = api.getToken();
@@ -469,6 +487,6 @@ export function createEvents(api) {
       if (api.isBusy() || eventBusy || api.getState().completed || (game.active && !game.active.includes('document'))) throw new Error('いまは資料を提出できません。現在のイベントを終えてください。');
       game.draft = { ...value }; fillForm(); await submitDocument();
     },
-    snapshot() { return { active: game.active, phone: game.phone, documentVersion: game.document.version, documentApproved: game.document.approved, finalDocument: game.document.final, draft: { ...game.draft }, unread: { ...game.unread }, incident: game.seen.includes('incident') ? game.incident.name : null }; },
+    snapshot() { return { active: game.active, phone: game.phone, documentVersion: game.document.version, documentApproved: game.document.approved, finalDocument: game.document.final, draft: { ...game.draft }, unread: { ...game.unread }, incident: game.seen.includes('incident') ? game.incident.name : null, juniorReceived: game.seen.includes('junior-dm'), juniorReplied: Boolean(game.dmReplies['junior-replied']) }; },
   };
 }

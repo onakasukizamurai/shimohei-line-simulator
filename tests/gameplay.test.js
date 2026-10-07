@@ -1,19 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PEERS, DM_OPTIONS, createSession, nextEvent, reviewDocument, INCIDENTS, applyEventImpact } from '../gameplay.js';
+import { PEERS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, reviewDocument, INCIDENTS, applyEventImpact } from '../gameplay.js';
 import { initialState } from '../dialogue.js';
 
 const goodDraft = { goal: '中央の前進を止め、奪ったらサイドへ運んで攻める。', defence: 'linked', trigger: 'backpass', transition: 'cover', audience: 'all', deadline: 'tonight' };
 
-test('個別チャットは副将と分析班に統一し、副将から共有や決定事項の確認も頼める', () => {
+test('個別チャットに副将・分析班・後輩を用意し、副将から共有や決定事項の確認も頼める', () => {
   const peers = Object.keys(PEERS);
   const game = createSession(() => 0);
-  assert.deepEqual(peers, ['vice', 'analyst']);
+  assert.deepEqual(peers, ['vice', 'analyst', 'junior']);
   assert.equal(PEERS.analyst.name, '分析班');
   assert.equal(PEERS.analyst.initial, '分');
+  assert.equal(PEERS.junior.name, '後輩');
+  assert.equal(PEERS.junior.initial, '後');
+  assert.deepEqual(game.chats.junior, []);
+  assert.equal(game.unread.junior, 0);
   assert.deepEqual(Object.keys(game.chats), peers);
   assert.deepEqual(Object.keys(game.unread), peers);
   assert.deepEqual(Object.keys(DM_OPTIONS), peers);
+  assert.deepEqual(DM_OPTIONS.junior, ['了解。部活前に話そう', 'それはもう決まってる？もう一回考え直してもらえないかな…？', '一旦持ち帰って幹部と相談させてください']);
   for (const option of ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', '全員への共有をお願い！', 'いまの決定事項を確認したい！', 'ありがとう、こっちで考える！', '当日の雰囲気で伝えよう！']) {
     assert.ok(DM_OPTIONS.vice.includes(option), option);
   }
@@ -28,6 +33,34 @@ test('通常の進行で電話、初稿、前提変更、最終提出が一度�
   state.stage = 5; assert.equal(nextEvent(state, game), 'incident'); game.seen.push('incident');
   state.stage = 7; assert.equal(nextEvent(state, game), 'final-document'); game.seen.push('final-document');
   assert.equal(nextEvent(state, game), null);
+});
+
+test('後輩の通知は電話対応が終わった後半で、他のイベント対応中を避けて届く', () => {
+  const state = { ...initialState(), stage: 6 };
+  const game = createSession(() => 0);
+  game.seen.push('phone'); game.phone = '応答';
+  for (const phone of ['応答', '折り返し', '不在着信']) {
+    assert.equal(shouldReceiveJunior(state, { ...game, phone }), true, phone);
+  }
+  assert.equal(shouldReceiveJunior({ ...state, stage: 5 }, game), false);
+  assert.equal(shouldReceiveJunior({ ...state, completed: true }, game), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, active: 'phone' }), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, active: 'incident' }), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, active: 'final-document' }), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, seen: [] }), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, phone: '未着信' }), false);
+  assert.equal(shouldReceiveJunior(state, { ...game, phone: '着信中' }), false);
+  assert.deepEqual(game.seen, ['phone']);
+});
+
+test('後輩の通知は受信済みのプレイで繰り返さず、再プレイでは独立して判定する', () => {
+  const state = { ...initialState(), stage: 6 };
+  const first = createSession(() => 0); const second = createSession(() => .9);
+  first.seen.push('phone', 'junior-dm'); first.phone = '応答';
+  second.seen.push('phone'); second.phone = '折り返し';
+  assert.equal(shouldReceiveJunior(state, first), false);
+  assert.equal(shouldReceiveJunior(state, second), true);
+  assert.equal(shouldReceiveJunior(state, createSession(() => 0)), false);
 });
 
 test('メモの共有先・合図・役割を誤ると具体的に差し戻される', () => {

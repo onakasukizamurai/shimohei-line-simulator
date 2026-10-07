@@ -2,6 +2,7 @@
 export const PEERS = {
   vice: { name: '副将', initial: '副', color: '#a56d47', subtitle: '個別チャット' },
   analyst: { name: '分析班', initial: '分', color: '#7767a4', subtitle: '個別チャット' },
+  junior: { name: '後輩', initial: '後', color: '#5f8fa3', subtitle: '個別チャット' },
 };
 
 export const INCIDENTS = [
@@ -49,8 +50,8 @@ export function createSession(random = Math.random) {
     seen: [], phone: '未着信', callAnswers: 0, shared: false, helpUsed: false,
     document: { version: 0, attempts: 0, approved: false, final: false, reviews: [] },
     draft: { goal: '', defence: 'linked', trigger: 'backpass', transition: 'cover', audience: 'all', deadline: 'tonight' },
-    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0 },
-    chats: { vice: [], analyst: [] }, active: null, eventAttempts: 0,
+    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0, junior: 0 },
+    chats: { vice: [], analyst: [], junior: [] }, active: null, eventAttempts: 0,
   };
 }
 
@@ -61,6 +62,11 @@ export function nextEvent(state, game) {
   if (!seen.has('incident') && (state.stage >= 5 || state.turns >= 9)) return 'incident';
   if (!seen.has('final-document') && state.stage >= 7) return 'final-document';
   return null;
+}
+
+export function shouldReceiveJunior(state, game) {
+  return state.stage >= 6 && !state.completed && !game.active && game.seen.includes('phone')
+    && ['応答', '折り返し', '不在着信'].includes(game.phone) && !game.seen.includes('junior-dm');
 }
 
 export function reviewDocument(draft, incident = null) {
@@ -103,4 +109,5 @@ export const PHONE_ROUNDS = [
 export const DM_OPTIONS = {
   vice: ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', '全員への共有をお願い！', 'いまの決定事項を確認したい！', 'ありがとう、こっちで考える！', '当日の雰囲気で伝えよう！'],
   analyst: ['映像の根拠を教えて！', '監督にも共有してほしい！', 'たぶん大丈夫、今の案でいく！'],
+  junior: ['了解。部活前に話そう', 'それはもう決まってる？もう一回考え直してもらえないかな…？', '一旦持ち帰って幹部と相談させてください'],
 };

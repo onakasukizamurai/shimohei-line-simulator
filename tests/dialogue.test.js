@@ -47,6 +47,7 @@ test('最初のリジェクト後は具体的な返信で全話題を完了し�
   assert.equal(state.completed, true);
   assert.equal(state.resolved.filter(Boolean).length, 8);
   assert.equal(getEnding(state).id, 'approved');
+  assert.equal(getEnding(state).messages.at(-1), '末長く頼むよアミーゴ！！');
   assert.equal(state.trust, 100);
   assert.equal(state.turns, 9);
 });

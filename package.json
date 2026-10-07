@@ -1,6 +1,6 @@
 {
   "name": "shimohei-line-simulator",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "description": "Ulysses2027 幹部コーチ監督・非公式会話シミュレーター",
