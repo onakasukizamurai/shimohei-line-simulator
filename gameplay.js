@@ -1,8 +1,7 @@
 // ゲーム内の事件・個別チャット・資料。試合情報と登場人物の役割は創作です。
 export const PEERS = {
   vice: { name: '副将', initial: '副', color: '#a56d47', subtitle: '個別チャット' },
-  analyst: { name: '映像係', initial: '映', color: '#7767a4', subtitle: '個別チャット' },
-  captain: { name: '主将', initial: '主', color: '#477b74', subtitle: '個別チャット' },
+  analyst: { name: '分析班', initial: '分', color: '#7767a4', subtitle: '個別チャット' },
 };
 
 export const INCIDENTS = [
@@ -20,14 +19,14 @@ export const INCIDENTS = [
   },
   {
     id: 'cover', name: 'MFが１人遅れてくる',
-    teaser: '明日MFが１人、開始に間に合わない想定で考えないと。',
-    messages: ['今、連絡来た。\n明日MFが１人、最初から出られない想定にして。', '同じ配置のままいけるの？\n誰がその穴埋める？？'],
+    teaser: '来週の学習院戦でMFが１人、開始に間に合わない想定で考えないと。',
+    messages: ['今、連絡来た。\n来週の学習院戦でMFが１人、最初から出られない想定にして。', '同じ配置のままいけるの？\n誰がその穴埋める？？'],
     choices: [
       { text: 'FWを１人下げて中央を埋めます。守備の役割と共有メモを直します。', good: true },
       { text: '残った人が２人分走ります！', good: false },
       { text: 'たぶん間に合うと思います！', good: false },
     ],
-    hint: '主将メモ：MFが１人遅れる想定。FWを１人下げて中央を埋める案が出てる。まず役割を組み替えて共有しよう。',
+    hint: '副将メモ：MFが１人遅れる想定。FWを１人下げて中央を埋める案が出てる。まず役割を組み替えて共有しよう。',
     documentFix: { key: 'defence', value: 'cover', label: '守備を「FWを１人下げて中央をカバー」に変更' },
   },
   {
@@ -50,8 +49,8 @@ export function createSession(random = Math.random) {
     seen: [], phone: '未着信', callAnswers: 0, shared: false, helpUsed: false,
     document: { version: 0, attempts: 0, approved: false, final: false, reviews: [] },
     draft: { goal: '', defence: 'linked', trigger: 'backpass', transition: 'cover', audience: 'all', deadline: 'tonight' },
-    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0, captain: 0 },
-    chats: { vice: [], analyst: [], captain: [] }, active: null, eventAttempts: 0,
+    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0 },
+    chats: { vice: [], analyst: [] }, active: null, eventAttempts: 0,
   };
 }
 
@@ -71,7 +70,7 @@ export function reviewDocument(draft, incident = null) {
   if (draft.trigger === 'feeling') issues.push('「行けそうなとき」は合図になってない。全員が同じものを見て判断できる？');
   if (draft.transition === 'none') issues.push('外されたら誰が戻る？ うまくいかなかったときの約束がない。');
   if (draft.audience !== 'all') issues.push('幹部だけわかってても意味ないので、全員に共有して。');
-  if (draft.deadline !== 'tonight') issues.push('試合直前に初めて見せて、全員理解できるの？？ 今夜中に送ろう。');
+  if (draft.deadline !== 'tonight') issues.push('試合直前に初めて見せて、全員理解できるの？？ 今夜中に共有して、次の練習で役割と動きを確認しよう。');
   if (incident && draft[incident.documentFix.key] !== incident.documentFix.value) issues.push(`さっきの修正が入ってない。${incident.documentFix.label}して。`);
   return issues;
 }
@@ -94,7 +93,7 @@ export const PHONE_ROUNDS = [
   {
     text: 'で、全員それわかってる？\n俺がわかるのと、みんなが動けるのは別の話だからね。',
     choices: [
-      { text: '副将に役割の確認を頼み、今夜メモを共有します。明日のアップ前にも確認します。', good: true },
+      { text: '副将に役割の確認を頼み、今夜メモを共有します。次の練習で役割と動きを確認します。', good: true },
       { text: '「了解」ってスタンプは来てます！', good: false },
       { text: 'みんな、なんとなくわかってると思います。', good: false },
     ],
@@ -102,7 +101,6 @@ export const PHONE_ROUNDS = [
 ];
 
 export const DM_OPTIONS = {
-  vice: ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', 'ありがとう、こっちで考える！'],
+  vice: ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', '全員への共有をお願い！', 'いまの決定事項を確認したい！', 'ありがとう、こっちで考える！', '当日の雰囲気で伝えよう！'],
   analyst: ['映像の根拠を教えて！', '監督にも共有してほしい！', 'たぶん大丈夫、今の案でいく！'],
-  captain: ['全員への共有をお願い！', 'いまの決定事項を確認したい！', '当日の雰囲気で伝えよう！'],
 };

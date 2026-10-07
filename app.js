@@ -1,6 +1,6 @@
-import { STAGES, classifyReply, initialState, applyReply, getEnding } from './dialogue.js';
-import { createEvents } from './events.js?v=0.3.2';
-import { PEERS, applyEventImpact } from './gameplay.js';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.0';
+import { createEvents } from './events.js?v=0.4.0';
+import { PEERS, applyEventImpact } from './gameplay.js?v=0.4.0';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');
@@ -15,6 +15,7 @@ let lastReplyAt = Date.now();
 let reminders = 0;
 let gameMinutes = 0;
 let lastSender = null;
+let lastCoachMessageLength = 0;
 let composing = false;
 const delays = new Set();
 let pendingContinuation = null;
@@ -75,6 +76,7 @@ function addMessage(text, sender = 'coach') {
   row.append(content);
   messages.append(row);
   lastSender = sender;
+  if (sender === 'coach') lastCoachMessageLength = text.length;
   scrollToLatest(shouldFollow);
 }
 
@@ -91,7 +93,9 @@ async function coachSays(lines, token) {
     if (token !== session) return false;
     typing.hidden = false;
     scrollToLatest();
-    await pause(Math.min(1050, 430 + line.length * 9));
+    // 文章の長さに合わせて、返信間隔を1.2〜2.5秒に収める。
+    const readingLength = Math.max(line.length, lastSender === 'coach' ? lastCoachMessageLength : 0);
+    await pause(Math.min(2500, Math.max(1200, 900 + readingLength * 25)));
     if (token !== session) return false;
     typing.hidden = true;
     addMessage(line);
@@ -200,7 +204,8 @@ async function submitReply(raw, selectedKind) {
   const stage = STAGES[state.stage];
   const kind = selectedKind || classifyReply(stage, text);
   const previousStage = state.stage;
-  events.onReply(stage, text, kind);
+  const openingRejection = isOpeningRejection(state);
+  if (!openingRejection) events.onReply(stage, text, kind);
   state = applyReply(state, kind);
   gameMinutes++;
   lastReplyAt = Date.now();
@@ -211,13 +216,13 @@ async function submitReply(raw, selectedKind) {
   setBusy(true);
   renderStatus();
   scrollToLatest(true);
-  const lines = kind === 'specific' ? stage.good : kind === 'question' ? [stage.hint] : kind === 'offtopic' ? ['それは、学習院戦の戦術の話？', 'いま聞いてることに答えてもらえるかな？？'] : state.stage > previousStage ? ['そうじゃなくて、、、', ...stage[kind]] : stage[kind];
+  const lines = openingRejection ? OPENING_REJECTION : kind === 'specific' ? stage.good : kind === 'question' ? [stage.hint] : kind === 'offtopic' ? ['それは、学習院戦の戦術の話？', 'いま聞いてることに答えてもらえるかな？？'] : state.stage > previousStage ? ['そうじゃなくて、、、', ...stage[kind]] : stage[kind];
   if (!(await coachSays(lines, token))) return { ok: false, reason: '会議をやり直しました。' };
   pendingContinuation = async () => {
   if (state.stage > previousStage) {
     if (kind !== 'specific' && !(await coachSays(['そこは宿題ね。\nいったん次の話します。'], token))) return { ok: false };
     if (!(await coachSays(STAGES[state.stage].opening, token))) return { ok: false };
-  } else if (kind !== 'question') {
+  } else if (openingRejection || kind !== 'question') {
     if (!(await coachSays([stage.retry], token))) return { ok: false };
   }
   };
@@ -256,6 +261,7 @@ function reset() {
   pendingContinuation = null;
   events?.reset();
   lastSender = null;
+  lastCoachMessageLength = 0;
   reminders = 0;
   lastReplyAt = Date.now();
   messages.replaceChildren();

@@ -1,28 +1,64 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STAGES, classifyReply, initialState, applyReply, getEnding } from '../dialogue.js';
+import { OPENING_REJECTION, STAGES, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from '../dialogue.js';
 
-test('具体的な自由入力で全話題を完了し、納得エンドになる', () => {
-  let state = initialState();
+test('一度目は返信の種類に関わらずリジェクトし、話題と試行回数を進めない', () => {
+  assert.deepEqual(OPENING_REJECTION, ['I reject.', 'リジェクトされた理由は自分で考えて。']);
+  for (const kind of ['specific', 'vague', 'dodge', 'offtopic', 'question']) {
+    const start = initialState();
+    assert.equal(isOpeningRejection(start), true, kind);
+    const state = applyReply(start, kind);
+    assert.equal(state.openingRejected, true, kind);
+    assert.equal(isOpeningRejection(state), false, kind);
+    assert.equal(state.stage, 0, kind);
+    assert.equal(state.attempts, 0, kind);
+    assert.equal(state.turns, 1, kind);
+    assert.deepEqual(state.resolved, [], kind);
+    assert.equal(state.mental, 94, kind);
+    assert.equal(state.trust, 17, kind);
+    assert.equal(state.completed, false, kind);
+    assert.equal(start.openingRejected, false, kind);
+    assert.equal(start.turns, 0, kind);
+  }
+});
+
+test('必須リジェクトの減点も下限に収まり、やり直すと一度目の判定が戻る', () => {
+  const exhausted = applyReply({ ...initialState(), mental: 4, trust: 2 }, 'question');
+  assert.equal(exhausted.mental, 0);
+  assert.equal(exhausted.trust, 0);
+  assert.equal(exhausted.completed, true);
+  assert.equal(exhausted.openingRejected, true);
+  const reset = initialState();
+  assert.equal(reset.openingRejected, false);
+  assert.equal(isOpeningRejection(reset), true);
+  assert.equal(applyReply(reset, 'specific').stage, 0);
+});
+
+test('最初のリジェクト後は具体的な返信で全話題を完了し、納得エンドになる', () => {
+  let state = applyReply(initialState(), 'specific');
   for (const stage of STAGES) {
     const reply = stage.choices.find(choice => choice.kind === 'specific').text;
     assert.equal(classifyReply(stage, reply), 'specific', stage.id);
+    assert.equal(state.stage, STAGES.indexOf(stage), stage.id);
     state = applyReply(state, 'specific');
+    assert.equal(state.stage, STAGES.indexOf(stage) + 1, stage.id);
+    assert.equal(isOpeningRejection(state), false, stage.id);
   }
   assert.equal(state.completed, true);
   assert.equal(state.resolved.filter(Boolean).length, 8);
   assert.equal(getEnding(state).id, 'approved');
   assert.equal(state.trust, 100);
+  assert.equal(state.turns, 9);
 });
 
-test('曖昧な返信は最初に追及し、2回で宿題として次の話題へ進む', () => {
-  let state = applyReply(initialState(), 'vague');
+test('必須リジェクト後の曖昧な返信は2回で宿題として次の話題へ進む', () => {
+  let state = applyReply(applyReply(initialState(), 'vague'), 'vague');
   assert.equal(state.stage, 0);
   assert.equal(state.attempts, 1);
   state = applyReply(state, 'vague');
   assert.equal(state.stage, 1);
   assert.equal(state.resolved[0], false);
-  assert.equal(state.mental, 76);
+  assert.equal(state.mental, 70);
 });
 
 test('精神論を続けるとメンタルが0で止まり、数値は範囲を超えない', () => {
@@ -31,6 +67,7 @@ test('精神論を続けるとメンタルが0で止まり、数値は範囲を�
   assert.equal(state.mental, 0);
   assert.equal(getEnding(state).id, 'exhausted');
   assert.ok(state.trust >= 0);
+  assert.equal(state.turns, 6);
   assert.throws(() => applyReply(state, 'specific'));
 });
 
@@ -41,15 +78,20 @@ test('自由入力で否定・質問・無関係な話・精神論を区別す�
   assert.equal(classifyReply(STAGES[0], '明日の天気は晴れかな？'), 'offtopic');
   assert.equal(classifyReply(STAGES[0], '気持ちで勝ちます！！'), 'dodge');
   assert.equal(classifyReply(STAGES[0], 'はい'), 'vague');
+  assert.equal(classifyReply(STAGES[7], '幹部がメモを全員に共有し、次の練習で役割を合わせます。'), 'specific');
+  assert.equal(classifyReply(STAGES[7], '副将がメモを全員に共有し、次の練習で役割を合わせます。'), 'specific');
   assert.throws(() => classifyReply(STAGES[0], '   '));
   assert.throws(() => classifyReply(STAGES[0], 'あ'.repeat(501)));
 });
 
-test('質問でスコアを稼げず、未決事項が残れば宿題エンドになる', () => {
-  const start = initialState();
+test('必須リジェクト後の質問はスコアと話題を変えず、未決事項が残れば宿題エンドになる', () => {
+  const start = applyReply(initialState(), 'question');
   const question = applyReply(start, 'question');
   assert.equal(question.trust, start.trust);
+  assert.equal(question.mental, start.mental);
   assert.equal(question.stage, start.stage);
+  assert.equal(question.attempts, 0);
+  assert.equal(question.turns, start.turns + 1);
   const state = { ...start, stage: 8, mental: 30, trust: 40, resolved: [true, false, true, false, true, false, true, false], completed: true };
   assert.equal(getEnding(state).id, 'homework');
   assert.equal(start.resolved.length, 0);

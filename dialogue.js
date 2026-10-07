@@ -1,8 +1,10 @@
 // 添付ログの口調を参考にした創作。戦術・相手の特徴はゲーム用の仮定です。
+export const OPENING_REJECTION = ['I reject.', 'リジェクトされた理由は自分で考えて。'];
+
 export const STAGES = [
   {
     id: 'overview', title: '戦術の全体像',
-    opening: ['戦術決まった？', '学習院戦のやつ'],
+    opening: ['戦術決まった？', '来週の学習院戦のやつ'],
     choices: [
       { text: '中央を閉めて、奪ったらサイドから運びます。', kind: 'specific' },
       { text: 'いま幹部で話し合っているところです！', kind: 'vague' },
@@ -109,16 +111,16 @@ export const STAGES = [
     id: 'share', title: '共有と確認',
     opening: ['で、これ誰がいつ共有する？', '幹部だけわかってても、全員が動けなかったら意味ないからね'],
     choices: [
-      { text: '幹部で今夜中に1枚にまとめて全員に共有し、明日のアップ前に役割を確認します。', kind: 'specific' },
+      { text: '幹部で今夜中に1枚にまとめて全員に共有し、次の練習で役割と動きを確認します。', kind: 'specific' },
       { text: 'あとでグループLINEに送っておきます！', kind: 'vague' },
       { text: '当日の雰囲気で伝えます！', kind: 'dodge' },
     ],
-    keywords: [/幹部|主将|私|自分|担当|キャプテン/, /今夜|今日|明日|時|まで|アップ前|試合前/],
+    keywords: [/幹部|副将|主将|私|自分|担当|キャプテン/, /今夜|今日|明日|時|まで|アップ前|試合前|練習|来週|一週間|1週間|次回/],
     good: ['よいと思います。ありがとう。', '全員が同じ絵を持てるように確認してね。\nまぁ任せます。'],
     vague: ['いつ送ってくれるのかな？？', '直前になるならなるとか言おうね。\n報告連絡相談はちゃんとやろう。'],
     dodge: ['それだと、ぶっつけじゃん', '人は前提が省かれていきなり答えを言われても理解できない！\n俺も話術がごみなので、よくやりがちなのですが、、、'],
     retry: '誰が、いつまでにまとめる？ 全員が理解したかは、どう確認する？',
-    hint: '担当と期限を決めて共有しよう。\n例えば幹部が今夜まとめ、明日のアップ前にみんなで役割を確認する。',
+    hint: '担当と期限を決めて共有しよう。\n例えば幹部が今夜まとめ、次の練習でみんなの役割と動きを確認する。',
   },
 ];
 
@@ -140,7 +142,11 @@ export function classifyReply(stage, reply) {
 }
 
 export function initialState() {
-  return { stage: 0, mental: 100, trust: 20, attempts: 0, turns: 0, resolved: [], completed: false };
+  return { stage: 0, mental: 100, trust: 20, attempts: 0, turns: 0, resolved: [], completed: false, openingRejected: false };
+}
+
+export function isOpeningRejection(state) {
+  return state.stage === 0 && !state.openingRejected;
 }
 
 const clamp = n => Math.max(0, Math.min(100, n));
@@ -148,7 +154,11 @@ export function applyReply(state, kind) {
   if (state.completed) throw new Error('会議は終了しています。');
   if (!['specific', 'vague', 'dodge', 'offtopic', 'question'].includes(kind)) throw new Error('返信の種類が不正です。');
   const next = { ...state, resolved: [...state.resolved], turns: state.turns + 1 };
-  if (kind === 'specific') {
+  if (isOpeningRejection(state)) {
+    next.openingRejected = true;
+    next.mental = clamp(next.mental - 6);
+    next.trust = clamp(next.trust - 3);
+  } else if (kind === 'specific') {
     next.mental = clamp(next.mental - 2);
     next.trust = clamp(next.trust + 11);
     next.resolved[state.stage] = true;

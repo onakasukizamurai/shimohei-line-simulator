@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, reviewDocument } from './gameplay.js';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, reviewDocument } from './gameplay.js?v=0.4.0';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -149,6 +149,14 @@ export function createEvents(api) {
         if (!game.draft.goal) game.draft.goal = '中央の前進を止め、奪ったらサイドへ運んで攻める。';
         receive(peer, 'たたき台、戦術メモに入れた！\n守備の分担と、合図と、外された時の約束は見直してから送ってね。', false);
         fillForm();
+      } else if (index === 2) {
+        game.shared = true; api.impact(2, 2);
+        receive(peer, '全員に共有しておく！\n最後の戦術メモも「全員」にして。次の練習で役割と動きを確認するね。', false);
+      } else if (index === 3) {
+        const count = api.getState().resolved.filter(Boolean).length;
+        receive(peer, `今の決定事項は${count}項目。\n${game.seen.includes('incident') ? game.incident.documentFix.label + 'も忘れずに。' : '口頭で話したことと、メモの内容をそろえよう。'}`, false);
+      } else if (index === 5) {
+        receive(peer, '当日ぶっつけは怖いから、今夜メモを共有しておこう！', false);
       } else receive(peer, '了解！ 詰まったら頼って。ひとりで抱え込まなくて大丈夫。', false);
     } else if (peer === 'analyst') {
       if (index === 0) {
@@ -158,14 +166,6 @@ export function createEvents(api) {
         receive(peer, '監督にも共有する！\n見たことと、そこから考えた仮説は分けて話そう。', false);
         api.emit(game.seen.includes('incident') ? game.incident.hint : '映像の想定メモです。中央の前進を止めて外へ誘導する案、どうでしょうか。', 'analyst');
       } else receive(peer, '「たぶん」で押すと、なんで？って聞かれるやつ…。根拠は確認しようね。', false);
-    } else {
-      if (index === 0) {
-        game.shared = true; api.impact(2, 2);
-        receive(peer, '全員に共有しておく！\n最後の戦術メモも「全員」にして。明日のアップ前に役割を確認するね。', false);
-      } else if (index === 1) {
-        const count = api.getState().resolved.filter(Boolean).length;
-        receive(peer, `今の決定事項は${count}項目。\n${game.seen.includes('incident') ? game.incident.documentFix.label + 'も忘れずに。' : '口頭で話したことと、メモの内容をそろえよう。'}`, false);
-      } else receive(peer, '当日ぶっつけは怖いから、今夜メモを共有しておこう！', false);
     }
     game.unread[peer] = 0; renderDM(); api.changed();
   }
@@ -205,15 +205,15 @@ export function createEvents(api) {
   function attachment(record) {
     const row = node('div', 'message-row user-row');
     const card = node('button', 'attachment-card'); card.type = 'button';
-    card.append(node('span', 'file-icon', 'TXT'));
+    card.append(node('span', 'file-icon', 'DOCX'));
     const description = node('span', 'file-description');
-    description.append(node('strong', '', `学習院戦_戦術メモ_v${record.version}.txt`), node('span', '', record.issues.length ? '送信済み · 修正あり' : '送信済み · 確認済み'));
+    description.append(node('strong', '', `学習院戦_戦術メモ_v${record.version}.docx`), node('span', '', record.issues.length ? 'Word文書 · 送信済み · 修正あり' : 'Word文書 · 送信済み · 確認済み'));
     card.append(description); card.addEventListener('click', () => openAttachment(record));
     row.append(card); $('#messages').append(row); api.scroll();
   }
 
   function openAttachment(record) {
-    $('#attachment-title').textContent = `学習院戦_戦術メモ_v${record.version}.txt`;
+    $('#attachment-title').textContent = `学習院戦_戦術メモ_v${record.version}.docx`;
     const content = $('#attachment-content'); content.replaceChildren();
     for (const key of fieldKeys) {
       const value = key === 'goal' ? record.draft[key] : [...$(`#draft-${key}`).options].find(option => option.value === record.draft[key])?.textContent;
@@ -246,7 +246,16 @@ export function createEvents(api) {
       if (final) game.document.final = true;
       game.shared = game.draft.audience === 'all';
       if (!game.seen.includes('document')) game.seen.push('document');
-      await api.say([`v${record.version}見た。`, final ? 'あい。さっきの変更も入ってるね。\nこれを全員に共有して、役割確認してね。' : 'よいと思います。\nじゃあ、その約束で実際どう動くかの話に戻ろう。']);
+      await api.say([
+        `v${record.version}見た。`,
+        ...(final ? [
+          'あい。さっきの変更も入ってるね。',
+          '俺はみんなから見たらただのゴミカスオジだけど',
+          '一応社会人としてコンサルを生業にしている以上は、成果を出すことにこだわりたいのね。',
+          'そのために何ができるか考えています。',
+          'これを全員に共有して、役割確認してね。',
+        ] : ['よいと思います。\nじゃあ、その約束で実際どう動くかの話に戻ろう。']),
+      ]);
       if (token !== api.getToken() || current !== game) return;
       game.active = null; eventBusy = false; api.lock(false); await api.resume(token);
     }
@@ -314,15 +323,16 @@ export function createEvents(api) {
     if (phoneBusy || phoneMode !== 'talking' || !text.trim() || text.length > 500) return;
     const token = api.getToken(); phoneBusy = true;
     const normalized = text.normalize('NFKC');
-    const good = selectedGood ?? (phoneRound === 0 ? /中央|守備|閉め/.test(normalized) && /サイド|奪|理由|相手/.test(normalized) : /副将|幹部|主将|全員/.test(normalized) && /今夜|明日|共有|確認/.test(normalized));
+    const good = selectedGood ?? (phoneRound === 0 ? /中央|守備|閉め/.test(normalized) && /サイド|奪|理由|相手/.test(normalized) : /副将|幹部|主将|全員/.test(normalized) && /今夜|今日|明日|練習|来週|一週間|1週間|次回|共有|確認/.test(normalized));
     if (good) game.callAnswers++;
     $('#phone-choices').querySelectorAll('button').forEach(button => { button.disabled = true; });
     $('#phone-send').disabled = true;
     $('#phone-subtitles').append(node('p', 'phone-your-answer', `あなた「${text}」`));
-    await api.pause(450);
+    await api.pause(1200);
     if (token !== api.getToken()) return;
-    $('#phone-subtitles').append(node('p', 'phone-response', good ? 'うん、その順番で話してもらえるとわかる。' : 'そうじゃなくて、、、\n前提が省かれていきなり答えを言われても理解できない！'));
-    await api.pause(850);
+    const response = good ? 'うん、その順番で話してもらえるとわかる。' : 'そうじゃなくて、、、\n前提が省かれていきなり答えを言われても理解できない！';
+    $('#phone-subtitles').append(node('p', 'phone-response', response));
+    await api.pause(Math.min(2500, Math.max(1800, 1000 + response.length * 25)));
     if (token !== api.getToken()) return;
     phoneRound++;
     if (phoneRound < PHONE_ROUNDS.length) { phoneBusy = false; $('#phone-send').disabled = false; renderPhoneRound(); return; }
@@ -356,6 +366,8 @@ export function createEvents(api) {
     if (type === 'phone') {
       await api.say(['文字だと伝わらんので、電話してもいい？', 'いや、もうかけてます。']);
       if (token !== api.getToken()) return true;
+      await api.pause(1500);
+      if (token !== api.getToken()) return true;
       incomingCall();
     } else if (type === 'document') {
       await api.say(['それ、１枚にまとめて送って。', '守る場所、プレスの合図、外されたとき、共有する相手。\n今の案が全員に伝わるように。']);
@@ -366,7 +378,7 @@ export function createEvents(api) {
       await api.say(game.incident.messages);
       if (token !== api.getToken()) return true;
     } else {
-      receive('captain', '最後の版、全員に送ってほしい！\n最初の案から変わったところも確認するね。');
+      receive('vice', '最後の版、全員に送ってほしい！\n最初の案から変わったところも確認するね。');
       await api.say(['最新版、送って。', 'さっき話した変更、最初のメモには入ってないよね？\nファイル名は最終版じゃなくて、版をつけてくださいwww']);
     }
     return true;
