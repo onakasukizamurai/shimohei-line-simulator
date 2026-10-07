@@ -1,7 +1,7 @@
 // ゲーム内の事件・個別チャット・資料。試合情報と登場人物の役割は創作です。
 export const PEERS = {
   vice: { name: '副将', initial: '副', color: '#a56d47', subtitle: '個別チャット' },
-  analyst: { name: '分析班', initial: '分', color: '#7767a4', subtitle: '個別チャット' },
+  analyst: { name: '樋野菜々子（ひな）', initial: '樋', color: '#7767a4', subtitle: '個別チャット', avatar: './assets/hina-avatar.png' },
   junior: { name: '後輩', initial: '後', color: '#5f8fa3', subtitle: '個別チャット' },
 };
 
@@ -108,6 +108,6 @@ export const PHONE_ROUNDS = [
 
 export const DM_OPTIONS = {
   vice: ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', '全員への共有をお願い！', 'いまの決定事項を確認したい！', 'ありがとう、こっちで考える！', '当日の雰囲気で伝えよう！'],
-  analyst: ['映像の根拠を教えて！', '監督にも共有してほしい！', 'たぶん大丈夫、今の案でいく！'],
+  analyst: ['映像の根拠を教えていただけますか？', '監督にも共有していただけますか？', 'たぶん大丈夫だと思いますので、今の案で進めます。'],
   junior: ['了解。部活前に話そう', 'それはもう決まってる？もう一回考え直してもらえないかな…？', '一旦持ち帰って幹部と相談させてください'],
 };

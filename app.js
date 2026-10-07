@@ -1,6 +1,6 @@
-import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.1';
-import { createEvents } from './events.js?v=0.4.1';
-import { PEERS, applyEventImpact } from './gameplay.js?v=0.4.1';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.2';
+import { createEvents } from './events.js?v=0.4.2';
+import { PEERS, applyEventImpact } from './gameplay.js?v=0.4.2';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');
@@ -39,9 +39,10 @@ function addMessage(text, sender = 'coach') {
     const avatar = document.createElement('div');
     avatar.className = 'coach-avatar';
     avatar.setAttribute('aria-hidden', 'true');
-    if (sender === 'coach') {
+    const portraitSource = sender === 'coach' ? './assets/shimohei-avatar.png' : PEERS[sender]?.avatar;
+    if (portraitSource) {
       const portrait = document.createElement('img');
-      portrait.src = './assets/shimohei-avatar.png';
+      portrait.src = portraitSource;
       portrait.alt = '';
       portrait.width = 40;
       portrait.height = 40;

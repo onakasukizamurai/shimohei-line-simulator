@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, reviewDocument } from './gameplay.js?v=0.4.1';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, reviewDocument } from './gameplay.js?v=0.4.2';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -9,6 +9,17 @@ function node(tag, className, text) {
   if (className) element.className = className;
   if (text !== undefined) element.textContent = text;
   return element;
+}
+
+function peerIcon(peer) {
+  const info = PEERS[peer];
+  const icon = node('span', `peer-avatar ${peer}-avatar${info.avatar ? ' photo-avatar' : ''}`, info.avatar ? undefined : info.initial);
+  icon.style.background = info.color;
+  if (info.avatar) {
+    const image = node('img'); image.src = info.avatar; image.alt = `${info.name}のアイコン`;
+    image.width = 38; image.height = 38; icon.append(image);
+  }
+  return icon;
 }
 
 export function createEvents(api) {
@@ -54,8 +65,7 @@ export function createEvents(api) {
   function notify(peer, text) {
     const toast = node('div', 'chat-notification');
     const open = node('button', 'notification-open');
-    const icon = node('span', `peer-avatar ${peer}-avatar`, PEERS[peer].initial);
-    icon.style.background = PEERS[peer].color;
+    const icon = peerIcon(peer);
     const body = node('span', 'notification-body');
     body.append(node('strong', '', `${PEERS[peer].name} · 個別チャット`), node('span', '', text));
     open.append(icon, body);
@@ -112,6 +122,8 @@ export function createEvents(api) {
     currentPeer = peer; game.unread[peer] = 0;
     $('#notifications').querySelectorAll(`[data-peer="${peer}"]`).forEach(item => item.remove());
     $('#dm-title').textContent = PEERS[peer].name;
+    const avatar = $('#dm-avatar'); avatar.replaceChildren(); avatar.hidden = !PEERS[peer].avatar;
+    if (PEERS[peer].avatar) avatar.append(peerIcon(peer));
     document.querySelectorAll('.dm-tabs [data-peer]').forEach(button => button.classList.toggle('selected', button.dataset.peer === peer));
     renderDM(); render();
     if (!$('#dm-dialog').open) $('#dm-dialog').showModal();

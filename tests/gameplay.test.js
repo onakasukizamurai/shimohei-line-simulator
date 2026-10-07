@@ -5,12 +5,13 @@ import { initialState } from '../dialogue.js';
 
 const goodDraft = { goal: '中央の前進を止め、奪ったらサイドへ運んで攻める。', defence: 'linked', trigger: 'backpass', transition: 'cover', audience: 'all', deadline: 'tonight' };
 
-test('個別チャットに副将・分析班・後輩を用意し、副将から共有や決定事項の確認も頼める', () => {
+test('個別チャットに副将・ひな・後輩を用意し、副将から共有や決定事項の確認も頼める', () => {
   const peers = Object.keys(PEERS);
   const game = createSession(() => 0);
   assert.deepEqual(peers, ['vice', 'analyst', 'junior']);
-  assert.equal(PEERS.analyst.name, '分析班');
-  assert.equal(PEERS.analyst.initial, '分');
+  assert.equal(PEERS.analyst.name, '樋野菜々子（ひな）');
+  assert.equal(PEERS.analyst.initial, '樋');
+  assert.equal(PEERS.analyst.avatar, './assets/hina-avatar.png');
   assert.equal(PEERS.junior.name, '後輩');
   assert.equal(PEERS.junior.initial, '後');
   assert.deepEqual(game.chats.junior, []);
