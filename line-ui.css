@@ -8,7 +8,20 @@
   --muted: #90959b;
 }
 body { padding: 0; background: #f5f5f6; }
-.simulator { width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
+.start-screen { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: #293345; }
+.start-card { width: min(100%, 444px); padding: 31px 26px 24px; border-radius: 26px; background: #fff; color: #15171b; }
+.start-label { display: table; margin: 0 auto; padding: 6px 15px; border-radius: 30px; background: #dff5e8; color: #258843; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.start-card h1 { margin: 18px 0 21px; text-align: center; font-size: 32px; line-height: 1.25; letter-spacing: .01em; }
+.start-story { padding: 16px 18px; border-radius: 17px; background: #f4f5f8; color: #535d6c; font-size: 14px; line-height: 1.95; }
+.start-story p { margin: 0; }
+.start-story strong { color: #161b22; }
+.start-rules { display: grid; gap: 10px; list-style: none; margin: 25px 0 28px; padding: 0; color: #586275; font-size: 13px; line-height: 1.7; }
+.start-rules li { position: relative; padding-left: 21px; }
+.start-rules li::before { content: ''; position: absolute; left: 5px; top: .65em; width: 6px; height: 6px; border-radius: 50%; background: #36c64e; }
+.open-talk { display: block; width: 100%; min-height: 57px; padding: 14px 20px; border: 0; border-radius: 17px; background: #36c64e; color: #fff; box-shadow: 0 6px 17px #36c64e35; font-size: 18px; font-weight: 750; }
+.open-talk:hover { background: #2cb843; }
+.start-footnote { margin: 19px 0 0; color: #97a1b0; text-align: center; font-size: 11px; line-height: 1.8; }
+.simulator { width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; overflow: hidden; }
 .sidebar { width: 260px; padding: 22px 17px 15px; color: #282b30; background: #fafafa; border-right: 1px solid #e3e5e8; }
 .brand { gap: 11px; color: #222; font-size: 21px; letter-spacing: 0; }
 .brand-mark { width: 35px; height: 35px; border: 0; border-radius: 9px; background: #06c755; color: white; }
@@ -58,8 +71,8 @@ body { padding: 0; background: #f5f5f6; }
 .header-icon { position: relative; display: grid; place-items: center; width: 33px; height: 35px; margin: 0; padding: 3px; border: 0; background: none; border-radius: 7px; color: #22252a; }
 .header-icon:hover { background: #e8e9ec; }
 .header-icon svg { width: 23px; height: 23px; stroke-width: 1.8; }
-.back-button { width: 25px; }
-#inbox-count { position: absolute; right: -3px; top: -3px; display: grid; place-items: center; min-width: 15px; height: 15px; padding: 0 3px; color: #fff; background: #06c755; border-radius: 12px; font-size: 9px; }
+.back-button { display: flex; align-items: center; gap: 1px; width: auto; min-width: 25px; flex-shrink: 0; padding: 0; }
+#inbox-count { display: block; min-width: 9px; padding: 0; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .game-toolbar { min-height: 36px; background: #f8f8f9; border-bottom: 0; padding: 4px 22px 8px; gap: 12px; }
 .toolbar-topic { color: #a0a5ac; font-size: 11px; }
 .game-toolbar button { color: #747b83; background: transparent; border: 0; border-radius: 5px; padding: 4px 6px; font-size: 11px; gap: 5px; }
@@ -121,11 +134,12 @@ body { padding: 0; background: #f5f5f6; }
 .result-card h2 { color: #263a2e; }
 .replay-button { background: #06b950; border-radius: 20px; }
 
-.notification-stack { top: 0; right: 18px; width: 325px; }
-.chat-notification { background: #ffffffed; border: 1px solid #e4e7ea; box-shadow: 0 6px 25px #34486030; border-radius: 13px; }
+.notification-stack { top: 0; right: 18px; width: min(325px, calc(100vw - 20px)); }
+.chat-notification { width: 100%; height: 88px; background: #ffffffed; border: 1px solid #e4e7ea; box-shadow: 0 6px 25px #34486030; border-radius: 13px; overflow: hidden; }
+.chat-notification .peer-avatar { width: 30px; height: 30px; }
 .notification-body { color: #343b43; }
-.notification-body strong { font-size: 11px; color: #78828e; }
-.notification-body > span { color: #424b55; font-size: 12px; }
+.notification-body strong { font-size: 11px; line-height: 14px; color: #78828e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-body > span { height: 38.4px; color: #424b55; font-size: 12px; line-height: 1.6; }
 .notification-dismiss { color: #a4abb4; }
 dialog { color: #292e34; }
 dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
@@ -148,6 +162,11 @@ dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
 .dm-footnote { color: #a8aeb6; background: #f7f7f8; }
 .dm-empty { color: #f7fbff; }
 .phone-avatar { overflow: hidden; background: #526f67; }
+.phone-actions button span { transform: none; }
+.phone-actions svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }
+.decline-call svg { transform: rotate(135deg); }
+.decline-call span { background: #e45353; }
+.answer-call span { background: #06c755; }
 
 @media (min-width: 1321px) {
   body { padding: 0; }
@@ -172,7 +191,7 @@ dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
   .header-actions { gap: 5px; }
   .header-icon { width: 27px; height: 32px; }
   .header-icon svg { width: 22px; height: 22px; }
-  .back-button { width: 21px; }
+  .back-button { width: auto; min-width: 21px; }
   .mobile-status { background: #f8f8f9; border: 0; padding: 6px 15px; gap: 13px; color: #a0a5ad; font-size: 10px; }
   .mobile-status strong { color: #727b87; font-size: 11px; font-weight: 500; }
   .mobile-status > span:last-child { color: #8c949f; }
@@ -201,7 +220,7 @@ dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
   .input-form textarea { min-height: 39px; font-size: 16px; padding: 8px 12px; }
   .send-button { width: 30px; height: 39px; }
   .reply-bottom { font-size: 8px; margin-top: 5px; }
-  .notification-stack { left: 10px; right: 10px; width: auto; }
+  .notification-stack { left: auto; right: 10px; width: min(370px, calc(100vw - 20px)); }
   .chat-notification { max-width: 370px; }
 }
 @media (max-width: 380px) {
@@ -209,8 +228,13 @@ dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
   .header-title h1 span { font-size: 12px; }
   .header-actions { gap: 3px; }
   .header-icon { width: 25px; }
-  .back-button { width: 18px; }
+  .back-button { width: auto; min-width: 18px; }
   .coach-avatar { width: 37px; height: 37px; }
   .bubble { font-size: 14px; }
   .toolbar-topic { display: none; }
+}
+@media (max-width: 480px) {
+  .start-screen { padding: max(6px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)); }
+  .start-card { padding: 31px 26px 24px; }
+  .start-card h1 { font-size: 30px; }
 }

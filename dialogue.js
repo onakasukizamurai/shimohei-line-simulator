@@ -1,5 +1,10 @@
 // 添付ログの口調を参考にした創作。戦術・相手の特徴はゲーム用の仮定です。
 export const OPENING_REJECTION = ['I reject.', 'リジェクトされた理由は自分で考えて。'];
+export const OPENING_CHOICES = [
+  { text: '今幹部で話し合ってるところです！', kind: 'vague' },
+  { text: '気持ちで勝ちます', kind: 'dodge' },
+  { text: '１年生を入れようと思っています', kind: 'vague' },
+];
 
 export const STAGES = [
   {
@@ -147,6 +152,11 @@ export function initialState() {
 
 export function isOpeningRejection(state) {
   return state.stage === 0 && !state.openingRejected;
+}
+
+export function replyChoices(state) {
+  if (state.completed) return [];
+  return isOpeningRejection(state) ? OPENING_CHOICES : STAGES[state.stage].choices;
 }
 
 const clamp = n => Math.max(0, Math.min(100, n));

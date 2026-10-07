@@ -1,6 +1,6 @@
-import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.3';
-import { createEvents } from './events.js?v=0.4.3';
-import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.3';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from './dialogue.js?v=0.4.4';
+import { createEvents } from './events.js?v=0.4.4';
+import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.4';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');
@@ -9,6 +9,7 @@ const input = $('#free-reply');
 const typing = $('#typing');
 const result = $('#result');
 let state = initialState();
+let started = false;
 let busy = false;
 let session = 0;
 let lastReplyAt = Date.now();
@@ -126,11 +127,11 @@ function renderStatus() {
 function renderChoices() {
   const choices = $('#choices');
   choices.replaceChildren();
-  if (state.completed) return;
+  if (!started || state.completed) return;
   if (events?.active) { events.renderChoices(choices); return; }
   // 正解が毎回同じ位置にならないようにする。
-  const list = [...STAGES[state.stage].choices];
-  for (let i = list.length - 1; i > 0; i--) {
+  const list = [...replyChoices(state)];
+  for (let i = isOpeningRejection(state) ? 0 : list.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [list[i], list[j]] = [list[j], list[i]];
   }
@@ -153,8 +154,8 @@ function renderChoices() {
 function setBusy(value) {
   busy = value;
   $('#choices').querySelectorAll('button').forEach(button => { button.disabled = value || state.completed; });
-  input.disabled = state.completed;
-  $('#send-button').disabled = value || state.completed || !input.value.trim();
+  input.disabled = !started || state.completed;
+  $('#send-button').disabled = !started || value || state.completed || !input.value.trim();
   $('#reply-title').textContent = state.completed ? 'おつかれさまでした。' : value ? 'しもへい。が返信中…' : events?.active ? events.title : 'どう返す？';
   $('#reply-hint').textContent = state.completed ? 'もう一度挑戦するなら、やり直す。' : '選択肢でも、あなたの言葉でも。';
   events?.render();
@@ -193,6 +194,7 @@ function showResult() {
 }
 
 async function submitReply(raw, selectedKind) {
+  if (!started) return { ok: false, reason: '「トークを開く」で会議を始めてください。' };
   if (busy || state.completed) return { ok: false, reason: state.completed ? '会議は終了しています。' : '返信を待っています。' };
   const text = String(raw).trim();
   if (!text || text.length > 500) return { ok: false, reason: '1〜500文字で返信してください。' };
@@ -255,6 +257,7 @@ async function continueMeeting(token = session) {
 }
 
 function reset() {
+  if (!started) return;
   session++;
   for (const job of delays) { clearTimeout(job.id); job.resolve(); }
   delays.clear();
@@ -279,6 +282,16 @@ function reset() {
   history.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+$('#open-talk').addEventListener('click', () => {
+  if (started) return;
+  started = true;
+  $('#start-screen').hidden = true;
+  $('#simulator').hidden = false;
+  $('#simulator').inert = false;
+  reset();
+  $('#chat-panel').focus({ preventScroll: true });
+});
+
 $('#reply-form').addEventListener('submit', event => { event.preventDefault(); void submitReply(input.value); });
 input.addEventListener('compositionstart', () => { composing = true; });
 input.addEventListener('compositionend', () => { composing = false; });
@@ -299,7 +312,7 @@ $('#compose-document').addEventListener('click', () => $('#document-button').cli
 document.addEventListener('visibilitychange', () => { lastReplyAt = Date.now(); });
 
 setInterval(async () => {
-  if (busy || state.completed || events?.active || document.hidden || reminders >= 2 || Date.now() - lastReplyAt < 45000) return;
+  if (!started || busy || state.completed || events?.active || document.hidden || reminders >= 2 || Date.now() - lastReplyAt < 45000) return;
   const token = session;
   reminders++;
   gameMinutes++;
@@ -317,11 +330,11 @@ setInterval(async () => {
 }, 1000);
 
 function stateSnapshot() {
-  return { topic: state.completed ? '会議終了' : STAGES[state.stage].title, mental: state.mental, trust: state.trust, decided: state.resolved.filter(Boolean).length, finished: state.completed, choices: state.completed ? [] : events?.active ? events.choiceTexts : STAGES[state.stage].choices.map(choice => choice.text), events: events?.snapshot() };
+  return { started, topic: !started ? '開始待ち' : state.completed ? '会議終了' : STAGES[state.stage].title, mental: state.mental, trust: state.trust, decided: state.resolved.filter(Boolean).length, finished: state.completed, choices: !started || state.completed ? [] : events?.active ? events.choiceTexts : replyChoices(state).map(choice => choice.text), events: events?.snapshot() };
 }
 
 events = createEvents({
-  getState: () => state, getToken: () => session, isBusy: () => busy, emit: addMessage,
+  getState: () => state, getToken: () => session, isBusy: () => busy || !started, emit: addMessage,
   say: lines => coachSays(lines, session), pause,
   impact: (mental, trust) => { state = applyEventImpact(state, mental, trust); gameMinutes++; renderStatus(); },
   finishAoi: () => { state = applyAoiEnding(state); gameMinutes++; renderStatus(); },
@@ -349,4 +362,5 @@ if (document.modelContext?.registerTool) {
   window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });
 }
 
-reset();
+renderStatus();
+setBusy(false);

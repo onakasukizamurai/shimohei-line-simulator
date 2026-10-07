@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { OPENING_REJECTION, STAGES, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from '../dialogue.js';
+import { OPENING_REJECTION, OPENING_CHOICES, STAGES, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from '../dialogue.js';
+
+test('最初だけ指定順の3択を表示し、どれを選んでもリジェクト後は戦術の3択に戻る', () => {
+  const choices = replyChoices(initialState());
+  assert.deepEqual(choices.map(choice => choice.text), ['今幹部で話し合ってるところです！', '気持ちで勝ちます', '１年生を入れようと思っています']);
+  assert.deepEqual(choices, OPENING_CHOICES);
+  for (const choice of choices) {
+    const rejected = applyReply(initialState(), choice.kind);
+    assert.equal(rejected.stage, 0, choice.text);
+    assert.equal(isOpeningRejection(rejected), false, choice.text);
+    assert.deepEqual(replyChoices(rejected), STAGES[0].choices, choice.text);
+    const nextStage = applyReply(rejected, 'specific');
+    assert.deepEqual(replyChoices(nextStage), STAGES[1].choices, choice.text);
+  }
+});
+
+test('やり直すと最初の3択が戻り、終了した会議では返信候補を表示しない', () => {
+  const rejected = applyReply(initialState(), 'vague');
+  assert.notDeepEqual(replyChoices(rejected), OPENING_CHOICES);
+  assert.deepEqual(replyChoices(initialState()), OPENING_CHOICES);
+  assert.deepEqual(replyChoices({ ...rejected, completed: true }), []);
+});
 
 test('一度目は返信の種類に関わらずリジェクトし、話題と試行回数を進めない', () => {
   assert.deepEqual(OPENING_REJECTION, ['I reject.', 'リジェクトされた理由は自分で考えて。']);

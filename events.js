@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, shouldReceiveAoi, reviewDocument } from './gameplay.js?v=0.4.3';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, shouldReceiveAoi, reviewDocument } from './gameplay.js?v=0.4.4';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -104,6 +104,7 @@ export function createEvents(api) {
       tabCount.textContent = game.unread[peer] || '';
     }
     $('#inbox-count').textContent = total; $('#inbox-count').hidden = !total;
+    $('#header-chats').setAttribute('aria-label', total ? `トーク一覧を開く（未読${total}件）` : 'トーク一覧を開く');
     $('#document-version').textContent = game.document.version ? `v${game.document.version}${game.document.approved ? ' ✓' : ' 要修正'}` : '未提出';
     $('#document-button').classList.toggle('attention', game.active?.includes('document') || false);
     $('#task-banner').hidden = !game.active;
@@ -216,7 +217,7 @@ export function createEvents(api) {
       outlet: 'サイドが詰まったらDFに戻して、逆サイドへ展開しましょう。',
     };
     for (const text of [
-      '強化グル、失礼します。戦術ちょっと考えてみました。',
+      '戦術ちょっと考えてみました。',
       '中央を閉めて、奪ったらサイドから。FWが外へ誘導、MFが中央、DFが裏をカバーする形でどうですか？',
       adjustments[game.incident.id],
       'PCとロスト時の役割もメモにまとめて、今夜全員に共有。次の練習で確認しましょう！',
@@ -450,7 +451,7 @@ export function createEvents(api) {
       if (token !== api.getToken()) return true;
     } else {
       receive('vice', '最後の版、全員に送ってほしい！\n最初の案から変わったところも確認するね。');
-      await api.say(['最新版、送って。', 'さっき話した変更、最初のメモには入ってないよね？\nファイル名は最終版じゃなくて、版をつけてくださいwww']);
+      await api.say(['最新版、送って。', 'さっき話した変更、最初のメモには入ってないよね？']);
       if (token !== api.getToken()) return true;
     }
     inviteAoi();
