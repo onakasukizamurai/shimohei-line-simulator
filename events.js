@@ -1,4 +1,4 @@
-import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, reviewDocument } from './gameplay.js?v=0.4.2';
+import { PEERS, PHONE_ROUNDS, DM_OPTIONS, createSession, nextEvent, shouldReceiveJunior, shouldReceiveAoi, reviewDocument } from './gameplay.js?v=0.4.3';
 
 const $ = selector => document.querySelector(selector);
 const fieldKeys = ['goal', 'defence', 'trigger', 'transition', 'audience', 'deadline'];
@@ -89,7 +89,10 @@ export function createEvents(api) {
 
   function render() {
     $('#document-submit').disabled = api.isBusy() || eventBusy || api.getState().completed;
-    document.querySelectorAll('[data-peer="junior"]').forEach(button => { button.hidden = !game.seen.includes('junior-dm'); });
+    for (const peer of ['junior', 'aoi']) {
+      document.querySelectorAll(`[data-peer="${peer}"]`).forEach(button => { button.hidden = !game.seen.includes(`${peer}-dm`); });
+    }
+    if (currentPeer === 'aoi') $('#dm-choices').querySelectorAll('button').forEach(button => { button.disabled = api.isBusy() || eventBusy || api.getState().completed; });
     let total = 0;
     for (const peer of Object.keys(PEERS)) {
       total += game.unread[peer];
@@ -117,8 +120,8 @@ export function createEvents(api) {
   }
 
   function openPeer(peer) {
-    if (api.getState().completed || $('#phone-dialog').open) return;
-    if (peer === 'junior' && !game.seen.includes('junior-dm')) return;
+    if (api.getState().completed || game.seen.includes('aoi-ending') || $('#phone-dialog').open) return;
+    if (['junior', 'aoi'].includes(peer) && !game.seen.includes(`${peer}-dm`)) return;
     currentPeer = peer; game.unread[peer] = 0;
     $('#notifications').querySelectorAll(`[data-peer="${peer}"]`).forEach(item => item.remove());
     $('#dm-title').textContent = PEERS[peer].name;
@@ -138,17 +141,27 @@ export function createEvents(api) {
       history.append(item);
     }
     const choices = $('#dm-choices'); choices.replaceChildren();
-    const canReply = currentPeer !== 'junior' || (game.seen.includes('junior-dm') && !game.dmReplies['junior-replied']);
+    const canReply = currentPeer === 'junior' ? game.seen.includes('junior-dm') && !game.dmReplies['junior-replied'] : currentPeer !== 'aoi' || (game.seen.includes('aoi-dm') && !game.seen.includes('aoi-ending'));
     choices.hidden = !canReply;
     if (canReply) DM_OPTIONS[currentPeer].forEach((text, index) => {
       const button = node('button', '', text); button.type = 'button';
+      if (currentPeer === 'aoi') button.disabled = api.isBusy() || eventBusy || api.getState().completed;
       button.addEventListener('click', () => replyPeer(currentPeer, index)); choices.append(button);
     });
     history.scrollTop = history.scrollHeight;
   }
 
-  function replyPeer(peer, index) {
-    if (api.getState().completed) return;
+  async function replyPeer(peer, index) {
+    if (api.getState().completed || game.seen.includes('aoi-ending')) return;
+    if (peer === 'aoi') {
+      const key = `aoi:${index}`;
+      if (api.isBusy() || eventBusy || !game.seen.includes('aoi-dm') || game.dmReplies[key] || game.seen.includes('aoi-ending')) return;
+      game.chats[peer].push({ sender: 'user', text: DM_OPTIONS[peer][index] });
+      game.dmReplies[key] = true; game.unread[peer] = 0;
+      renderDM(); api.changed();
+      if (index === 2) await finishWithAoi();
+      return;
+    }
     if (peer === 'junior') {
       if (!game.seen.includes('junior-dm') || game.dmReplies['junior-replied']) return;
       game.chats[peer].push({ sender: 'user', text: DM_OPTIONS[peer][index] });
@@ -193,6 +206,28 @@ export function createEvents(api) {
     game.unread[peer] = 0; renderDM(); api.changed();
   }
 
+  async function finishWithAoi() {
+    const token = api.getToken();
+    game.seen.push('aoi-ending'); game.helpUsed = true; game.active = null;
+    eventBusy = true; api.lock(true); closeAll(); api.scroll();
+    const adjustments = {
+      press: 'プレスの合図は、バックパスだけじゃなく大きいトラップも入れましょう。',
+      cover: 'MFが足りない時間は、FWを１人下げて中央を埋めましょう。',
+      outlet: 'サイドが詰まったらDFに戻して、逆サイドへ展開しましょう。',
+    };
+    for (const text of [
+      '強化グル、失礼します。戦術ちょっと考えてみました。',
+      '中央を閉めて、奪ったらサイドから。FWが外へ誘導、MFが中央、DFが裏をカバーする形でどうですか？',
+      adjustments[game.incident.id],
+      'PCとロスト時の役割もメモにまとめて、今夜全員に共有。次の練習で確認しましょう！',
+    ]) {
+      await api.pause(Math.min(2500, Math.max(1200, 900 + text.length * 25)));
+      if (token !== api.getToken()) return;
+      api.emit(text, 'aoi'); api.scroll();
+    }
+    api.finishAoi(); eventBusy = false; await api.resume(token);
+  }
+
   function fillForm() {
     for (const key of fieldKeys) $(`#draft-${key}`).value = game.draft[key];
     $('#draft-version').textContent = `次の提出：v${game.document.version + 1}`;
@@ -211,7 +246,7 @@ export function createEvents(api) {
 
   function saveForm() { for (const key of fieldKeys) game.draft[key] = $(`#draft-${key}`).value; }
   function openDocument() {
-    if (api.getState().completed || $('#phone-dialog').open) return;
+    if (api.getState().completed || game.seen.includes('aoi-ending') || $('#phone-dialog').open) return;
     if ($('#dm-dialog').open) $('#dm-dialog').close();
     fillForm();
     if (!$('#document-dialog').open) $('#document-dialog').showModal();
@@ -236,6 +271,7 @@ export function createEvents(api) {
   }
 
   function openAttachment(record) {
+    if (game.seen.includes('aoi-ending')) return;
     $('#attachment-title').textContent = `学習院戦_戦術メモ_v${record.version}.docx`;
     const content = $('#attachment-content'); content.replaceChildren();
     for (const key of fieldKeys) {
@@ -380,6 +416,11 @@ export function createEvents(api) {
     game.active = null; eventBusy = false; api.lock(false); await api.resume(token);
   }
 
+  function inviteAoi() {
+    if (!shouldReceiveAoi(api.getState(), game)) return;
+    game.seen.push('aoi-dm'); receive('aoi', '麻辣湯食べに行かない？');
+  }
+
   async function startNext() {
     if (game.active) return true;
     if (shouldReceiveJunior(api.getState(), game)) {
@@ -390,7 +431,7 @@ export function createEvents(api) {
       if (api.getState().completed) { await api.resume(api.getToken()); return true; }
     }
     const type = nextEvent(api.getState(), game);
-    if (!type) return false;
+    if (!type) { inviteAoi(); return false; }
     const token = api.getToken();
     game.seen.push(type); game.active = type; render();
     if (type === 'phone') {
@@ -410,7 +451,9 @@ export function createEvents(api) {
     } else {
       receive('vice', '最後の版、全員に送ってほしい！\n最初の案から変わったところも確認するね。');
       await api.say(['最新版、送って。', 'さっき話した変更、最初のメモには入ってないよね？\nファイル名は最終版じゃなくて、版をつけてくださいwww']);
+      if (token !== api.getToken()) return true;
     }
+    inviteAoi();
     return true;
   }
 
@@ -492,6 +535,7 @@ export function createEvents(api) {
     addResult(container) {
       const summary = node('p', 'event-summary', `通話：${game.phone} · メモ：v${game.document.version}まで提出 · 幹部との協力：${game.helpUsed ? 'あり' : 'なし'}${game.document.final ? '\n変更を反映した最終版まで共有できた。' : ''}`);
       container.append(summary);
+      if (game.seen.includes('aoi-ending')) container.append(node('p', 'event-summary', 'Aoi Kobayashiの助けで、しもへい。が全面賛成。会議はご機嫌のまま終了した。'));
     },
     async submitDraft(value) {
       const allowed = { defence: ['linked', 'cover', 'ball'], trigger: ['backpass', 'touch', 'feeling'], transition: ['cover', 'reverse', 'none'], audience: ['all', 'leaders'], deadline: ['tonight', 'match'] };
@@ -499,6 +543,6 @@ export function createEvents(api) {
       if (api.isBusy() || eventBusy || api.getState().completed || (game.active && !game.active.includes('document'))) throw new Error('いまは資料を提出できません。現在のイベントを終えてください。');
       game.draft = { ...value }; fillForm(); await submitDocument();
     },
-    snapshot() { return { active: game.active, phone: game.phone, documentVersion: game.document.version, documentApproved: game.document.approved, finalDocument: game.document.final, draft: { ...game.draft }, unread: { ...game.unread }, incident: game.seen.includes('incident') ? game.incident.name : null, juniorReceived: game.seen.includes('junior-dm'), juniorReplied: Boolean(game.dmReplies['junior-replied']) }; },
+    snapshot() { return { active: game.active, phone: game.phone, documentVersion: game.document.version, documentApproved: game.document.approved, finalDocument: game.document.final, draft: { ...game.draft }, unread: { ...game.unread }, incident: game.seen.includes('incident') ? game.incident.name : null, juniorReceived: game.seen.includes('junior-dm'), juniorReplied: Boolean(game.dmReplies['junior-replied']), aoiReceived: game.seen.includes('aoi-dm'), aoiEnding: game.seen.includes('aoi-ending') }; },
   };
 }

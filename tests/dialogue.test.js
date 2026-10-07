@@ -97,3 +97,26 @@ test('必須リジェクト後の質問はスコアと話題を変えず、未�
   assert.equal(getEnding(state).id, 'homework');
   assert.equal(start.resolved.length, 0);
 });
+
+test('Aoiの助けを選んだときだけ、決定事項が少なくても隠しエンドになる', () => {
+  const unfinished = { ...initialState(), stage: 5, mental: 60, trust: 100, resolved: [true, false, true, false, true], completed: true };
+  assert.equal(getEnding(unfinished).id, 'homework');
+  const assisted = { ...unfinished, specialEnding: 'aoi' };
+  const ending = getEnding(assisted);
+  assert.equal(ending.id, 'aoi');
+  assert.match(ending.description, /Aoi Kobayashi/);
+  assert.ok(ending.messages.some(message => message.includes('全面的に賛成')));
+  assert.equal(ending.messages.at(-1), '末長く頼むよアミーゴ！！');
+  assert.deepEqual(assisted.resolved, unfinished.resolved);
+  assert.equal(unfinished.specialEnding, null);
+});
+
+test('やり直すとAoiの隠しエンドを引き継がず、通常の会議に戻る', () => {
+  const endingState = { ...initialState(), mental: 80, trust: 100, completed: true, specialEnding: 'aoi' };
+  assert.equal(getEnding(endingState).id, 'aoi');
+  const reset = initialState();
+  assert.equal(reset.specialEnding, null);
+  assert.equal(reset.completed, false);
+  assert.equal(getEnding(reset).id, 'homework');
+  assert.equal(applyReply(reset, 'specific').completed, false);
+});

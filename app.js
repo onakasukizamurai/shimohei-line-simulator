@@ -1,6 +1,6 @@
-import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.2';
-import { createEvents } from './events.js?v=0.4.2';
-import { PEERS, applyEventImpact } from './gameplay.js?v=0.4.2';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, applyReply, getEnding } from './dialogue.js?v=0.4.3';
+import { createEvents } from './events.js?v=0.4.3';
+import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.3';
 
 const $ = selector => document.querySelector(selector);
 const messages = $('#messages');
@@ -324,6 +324,7 @@ events = createEvents({
   getState: () => state, getToken: () => session, isBusy: () => busy, emit: addMessage,
   say: lines => coachSays(lines, session), pause,
   impact: (mental, trust) => { state = applyEventImpact(state, mental, trust); gameMinutes++; renderStatus(); },
+  finishAoi: () => { state = applyAoiEnding(state); gameMinutes++; renderStatus(); },
   changed: () => { renderStatus(); renderChoices(); setBusy(busy); lastReplyAt = Date.now(); },
   lock: setBusy, resume: continueMeeting, scroll: () => scrollToLatest(true),
 });

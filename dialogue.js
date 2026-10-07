@@ -142,7 +142,7 @@ export function classifyReply(stage, reply) {
 }
 
 export function initialState() {
-  return { stage: 0, mental: 100, trust: 20, attempts: 0, turns: 0, resolved: [], completed: false, openingRejected: false };
+  return { stage: 0, mental: 100, trust: 20, attempts: 0, turns: 0, resolved: [], completed: false, openingRejected: false, specialEnding: null };
 }
 
 export function isOpeningRejection(state) {
@@ -181,6 +181,11 @@ export function applyReply(state, kind) {
 }
 
 export function getEnding(state) {
+  if (state.specialEnding === 'aoi') return {
+    id: 'aoi', title: 'あおいの一声で、満場一致。',
+    description: 'Aoi Kobayashiが強化グループに登場。戦術の提案にしもへい。が全面賛成し、ご機嫌で会議が終わった。',
+    messages: ['あおいが言うなら絶対それがいいです。', '全面的に賛成です。これで決まり！！', '末長く頼むよアミーゴ！！'],
+  };
   const count = state.resolved.filter(Boolean).length;
   if (state.mental === 0) return {
     id: 'exhausted', title: 'いったん、脳が限界。',

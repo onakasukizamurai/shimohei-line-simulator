@@ -137,7 +137,7 @@ dialog::backdrop { background: #25324355; backdrop-filter: blur(2px); }
 .dm-identity h2 { margin: 0; }
 .dm-identity .peer-avatar { width: 34px; height: 34px; }
 .dm-tabs { padding: 9px 16px; background: #fff; border-color: #e6e9ed; }
-.dm-tabs button { color: #7b8795; }
+.dm-tabs button { color: #7b8795; min-width: 0; overflow-wrap: anywhere; }
 .dm-tabs button.selected { color: #099147; background: #e8f7ed; }
 .dm-history { background: var(--chat); }
 .dm-message { color: #202429; line-height: 1.55; border-radius: 15px; font-size: 15px; }

@@ -3,6 +3,7 @@ export const PEERS = {
   vice: { name: '副将', initial: '副', color: '#a56d47', subtitle: '個別チャット' },
   analyst: { name: '樋野菜々子（ひな）', initial: '樋', color: '#7767a4', subtitle: '個別チャット', avatar: './assets/hina-avatar.png' },
   junior: { name: '後輩', initial: '後', color: '#5f8fa3', subtitle: '個別チャット' },
+  aoi: { name: 'Aoi Kobayashi', initial: 'A', color: '#4b8775', subtitle: '個別チャット', avatar: './assets/aoi-avatar.png' },
 };
 
 export const INCIDENTS = [
@@ -50,8 +51,8 @@ export function createSession(random = Math.random) {
     seen: [], phone: '未着信', callAnswers: 0, shared: false, helpUsed: false,
     document: { version: 0, attempts: 0, approved: false, final: false, reviews: [] },
     draft: { goal: '', defence: 'linked', trigger: 'backpass', transition: 'cover', audience: 'all', deadline: 'tonight' },
-    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0, junior: 0 },
-    chats: { vice: [], analyst: [], junior: [] }, active: null, eventAttempts: 0,
+    answers: {}, dmReplies: {}, unread: { vice: 0, analyst: 0, junior: 0, aoi: 0 },
+    chats: { vice: [], analyst: [], junior: [], aoi: [] }, active: null, eventAttempts: 0,
   };
 }
 
@@ -67,6 +68,16 @@ export function nextEvent(state, game) {
 export function shouldReceiveJunior(state, game) {
   return state.stage >= 6 && !state.completed && !game.active && game.seen.includes('phone')
     && ['応答', '折り返し', '不在着信'].includes(game.phone) && !game.seen.includes('junior-dm');
+}
+
+export function shouldReceiveAoi(state, game) {
+  return state.stage >= 7 && !state.completed && (game.active === null || game.active === 'final-document')
+    && game.seen.includes('phone') && ['応答', '折り返し', '不在着信'].includes(game.phone)
+    && !game.seen.includes('aoi-dm');
+}
+
+export function applyAoiEnding(state) {
+  return { ...state, mental: Math.min(100, state.mental + 30), trust: 100, completed: true, specialEnding: 'aoi' };
 }
 
 export function reviewDocument(draft, incident = null) {
@@ -110,4 +121,5 @@ export const DM_OPTIONS = {
   vice: ['役割の確認をお願い！', '戦術メモのたたき台をお願い！', '全員への共有をお願い！', 'いまの決定事項を確認したい！', 'ありがとう、こっちで考える！', '当日の雰囲気で伝えよう！'],
   analyst: ['映像の根拠を教えていただけますか？', '監督にも共有していただけますか？', 'たぶん大丈夫だと思いますので、今の案で進めます。'],
   junior: ['了解。部活前に話そう', 'それはもう決まってる？もう一回考え直してもらえないかな…？', '一旦持ち帰って幹部と相談させてください'],
+  aoi: ['行きたいです！', '忙しいので無理かもです', '強化グルなんとかしてください'],
 };
