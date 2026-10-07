@@ -1,5 +1,5 @@
-import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from './dialogue.js?v=0.4.5';
-import { createEvents } from './events.js?v=0.4.5';
+import { STAGES, OPENING_REJECTION, classifyReply, initialState, isOpeningRejection, replyChoices, applyReply, getEnding } from './dialogue.js?v=0.4.7';
+import { createEvents } from './events.js?v=0.4.7';
 import { PEERS, applyEventImpact, applyAoiEnding } from './gameplay.js?v=0.4.5';
 
 const $ = selector => document.querySelector(selector);
@@ -208,7 +208,10 @@ async function submitReply(raw, selectedKind) {
   const kind = selectedKind || classifyReply(stage, text);
   const previousStage = state.stage;
   const openingRejection = isOpeningRejection(state);
-  if (!openingRejection) events.onReply(stage, text, kind);
+  if (!openingRejection) {
+    const tactic = selectedKind ? text : stage.choices.find(choice => choice.kind === 'specific').text;
+    events.onReply(stage, tactic, kind);
+  }
   state = applyReply(state, kind);
   gameMinutes++;
   lastReplyAt = Date.now();

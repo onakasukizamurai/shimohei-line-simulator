@@ -382,8 +382,7 @@ export function createEvents(api) {
   async function answerPhoneReply(text, selectedGood) {
     if (phoneBusy || phoneMode !== 'talking' || !text.trim() || text.length > 500) return;
     const token = api.getToken(); phoneBusy = true;
-    const normalized = text.normalize('NFKC');
-    const good = selectedGood ?? (phoneRound === 0 ? /中央|守備|閉め/.test(normalized) && /サイド|奪|理由|相手/.test(normalized) : /副将|幹部|主将|全員/.test(normalized) && /今夜|今日|明日|練習|来週|一週間|1週間|次回|共有|確認/.test(normalized));
+    const good = selectedGood ?? true;
     if (good) game.callAnswers++;
     $('#phone-choices').querySelectorAll('button').forEach(button => { button.disabled = true; });
     $('#phone-send').disabled = true;
@@ -408,8 +407,7 @@ export function createEvents(api) {
   async function answerIncident(text, good) {
     if (eventBusy || game.active !== 'incident') return;
     const token = api.getToken(); eventBusy = true; api.lock(true);
-    const fix = game.incident.documentFix;
-    const specific = good ?? (fix.key === 'trigger' ? /トラップ|合図/.test(text) && /誘導|変|追加|大き/.test(text) : fix.key === 'defence' ? /FW|fw|下げ|中央/.test(text) && /役割|埋|カバー|共有/.test(text) : /戻|逆サイド|展開/.test(text) && /DF|df|メモ|詰ま|サイド/.test(text));
+    const specific = good ?? true;
     api.emit(text, 'user'); api.impact(specific ? -3 : -9, specific ? 5 : -6);
     if (specific) game.incidentAccepted = true;
     await api.say(specific ? ['なるほど。それならよいと思います。', 'その変更、メモにも入れてね。\n口頭と資料で違うのが一番困るから。'] : ['それ、修正案になってる？？', game.incident.hint, 'この変更は、最終版のメモにも入れてください。']);
@@ -425,9 +423,12 @@ export function createEvents(api) {
   async function startNext() {
     if (game.active) return true;
     if (shouldReceiveJunior(api.getState(), game)) {
+      const token = api.getToken();
       game.seen.push('junior-dm');
       receive('junior', '明日の部活前少し話せますか？');
-      receive('junior', '部活辞めたいです、、', false);
+      await api.pause(1200);
+      if (token !== api.getToken()) return true;
+      receive('junior', '部活辞めたいです、、');
       api.impact(-10, 0);
       if (api.getState().completed) { await api.resume(api.getToken()); return true; }
     }
@@ -464,17 +465,21 @@ export function createEvents(api) {
     return ['戦術メモを開いてまとめる', '副将に下書きを頼む', 'とりあえず今の版を提出する'];
   }
 
-  async function reply(text) {
+  async function reply(text, fromChoice = false) {
     if (eventBusy || api.isBusy()) return;
     if (game.active === 'phone') {
-      if (phoneMode === 'talking') await answerPhoneReply(text);
-      else if (/応答|出ます|出る/.test(text)) answerPhone();
+      if (phoneMode === 'talking') {
+        const candidate = fromChoice ? PHONE_ROUNDS[phoneRound].choices.find(choice => choice.text === text) : null;
+        await answerPhoneReply(text, candidate?.good);
+      }
+      else if (!fromChoice || /応答|出ます|出る/.test(text)) answerPhone();
       else if (/折り返|あとで|出ない/.test(text)) await declinePhone();
       else openPhone();
     } else if (game.active === 'incident') {
-      const candidate = game.incident.choices.find(choice => choice.text === text);
+      const candidate = fromChoice ? game.incident.choices.find(choice => choice.text === text) : null;
       await answerIncident(text, candidate?.good);
-    } else if (/副将|下書き.*頼/.test(text)) { openPeer('vice'); }
+    } else if (!fromChoice) openDocument();
+    else if (/副将|下書き.*頼/.test(text)) { openPeer('vice'); }
     else if (/提出/.test(text)) await submitDocument();
     else openDocument();
   }
@@ -483,7 +488,7 @@ export function createEvents(api) {
     choiceTexts().forEach((text, index) => {
       const button = node('button', 'choice-button'); button.type = 'button';
       const number = node('span', 'choice-number', `0${index + 1}`); number.setAttribute('aria-hidden', 'true');
-      button.append(number, node('span', '', text)); button.addEventListener('click', () => reply(text)); container.append(button);
+      button.append(number, node('span', '', text)); button.addEventListener('click', () => reply(text, true)); container.append(button);
     });
   }
 

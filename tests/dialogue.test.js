@@ -93,17 +93,29 @@ test('精神論を続けるとメンタルが0で止まり、数値は範囲を�
   assert.throws(() => applyReply(state, 'specific'));
 });
 
-test('自由入力で否定・質問・無関係な話・精神論を区別する', () => {
-  assert.equal(classifyReply(STAGES[0], '中央は閉めません。サイドからも攻撃しません。'), 'vague');
-  assert.equal(classifyReply(STAGES[0], '中央は閉めない。サイドからも攻めないです。'), 'vague');
-  assert.equal(classifyReply(STAGES[0], 'どうすればいいか教えてください。'), 'question');
-  assert.equal(classifyReply(STAGES[0], '明日の天気は晴れかな？'), 'offtopic');
-  assert.equal(classifyReply(STAGES[0], '気持ちで勝ちます！！'), 'dodge');
-  assert.equal(classifyReply(STAGES[0], 'はい'), 'vague');
-  assert.equal(classifyReply(STAGES[7], '幹部がメモを全員に共有し、次の練習で役割を合わせます。'), 'specific');
-  assert.equal(classifyReply(STAGES[7], '副将がメモを全員に共有し、次の練習で役割を合わせます。'), 'specific');
+test('自由入力は文面や話題にかかわらず最善の選択肢と同じ判定になる', () => {
+  const replies = ['中央は閉めません。サイドからも攻撃しません。', 'どうすればいいか教えてください。', '明日の天気は晴れかな？', '気持ちで勝ちます！！', 'はい', 'あ'];
+  for (const stage of STAGES) {
+    for (const reply of [...replies, ...stage.choices.map(choice => choice.text)]) {
+      assert.equal(classifyReply(stage, reply), 'specific', `${stage.id}: ${reply}`);
+    }
+  }
   assert.throws(() => classifyReply(STAGES[0], '   '));
   assert.throws(() => classifyReply(STAGES[0], 'あ'.repeat(501)));
+});
+
+test('自由入力でも最初はリジェクトし、二度目以降は最善の選択肢と同じ進行と数値になる', () => {
+  let free = applyReply(initialState(), classifyReply(STAGES[0], 'はい'));
+  let selected = applyReply(initialState(), 'specific');
+  assert.deepEqual(free, selected);
+  assert.equal(free.stage, 0);
+  assert.equal(free.openingRejected, true);
+  for (const stage of STAGES) {
+    free = applyReply(free, classifyReply(stage, stage.choices.find(choice => choice.kind !== 'specific').text));
+    selected = applyReply(selected, 'specific');
+    assert.deepEqual(free, selected, stage.id);
+  }
+  assert.equal(getEnding(free).id, 'approved');
 });
 
 test('必須リジェクト後の質問はスコアと話題を変えず、未決事項が残れば宿題エンドになる', () => {

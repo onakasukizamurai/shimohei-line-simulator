@@ -129,21 +129,11 @@ export const STAGES = [
   },
 ];
 
-const DODGE = /気合|気持ちで|根性|なんとなく|雰囲気で|丸投げ|知らん|知らない|適当|寝ます|おやすみ|なんとかなる|監督が決め|しもへい.*決め/;
-const QUESTION = /どう(したら|すれば)|教えて(ください|下さい|ほしい|欲しい)|とは何|って何|意味(ですか|は)|ヒント/;
-const NONCOMMITTAL = /わから(ない|ん)|分から(ない|ん)|未定|まだ決ま|考えてません|してません|しません|やりません|決めてません|閉め(ない|ません)|守らない|攻め(ない|ません)|運ばない|切らない|共有しない/;
-
-export function classifyReply(stage, reply) {
+export function classifyReply(_stage, reply) {
   const text = String(reply).normalize('NFKC').trim();
   if (!text || text.length > 500) throw new Error('1〜500文字で返信してください。');
-  const candidate = stage.choices.find(choice => choice.text.normalize('NFKC') === text);
-  if (candidate) return candidate.kind;
-  if (DODGE.test(text)) return 'dodge';
-  if (QUESTION.test(text)) return 'question';
-  if (NONCOMMITTAL.test(text)) return 'vague';
-  if (text.length >= 14 && stage.keywords.every(pattern => pattern.test(text))) return 'specific';
-  if (/はい|了解|承知|すみません|申し訳|検討|話し合|考え|頑張|します|です|戦術|守|攻|パス|ホッケー/.test(text)) return 'vague';
-  return 'offtopic';
+  // 自由入力は文面にかかわらず最善の選択肢と同じ反応にする。
+  return 'specific';
 }
 
 export function initialState() {
